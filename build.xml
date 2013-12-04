@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="testingDemo" default="build" basedir=".">
+    <description>Project Build Script</description>
+
+    <!-- targets -->
+    <target name="build" depends="package" description="Build whole project"/>
+
+    <target name="clean" depends="init" description="Remove previous build files">
+        <delete dir="${build.dir}" includeemptydirs="true" quiet="true"/>
+    </target>
+
+    <target name="init">
+        <property environment="env"/>
+
+        <!-- check for required tools -->
+        <fail message="Missing SCALA_HOME variable in OS environment">
+            <condition>
+                <isset property="${env.SCALA_HOME}"/>
+            </condition>
+        </fail>
+        <fail message="Missing JAVA_HOME variable in OS environment">
+            <condition>
+                <isset property="${env.JAVA_HOME}"/>
+            </condition>
+        </fail>
+
+        <!-- variables for paths and files -->
+        <property name="src.dir" location="${basedir}/src/main"/>
+        <property name="test.dir" location="${basedir}/src/test"/>
+        <property name="lib.dir" location="${basedir}/lib"/>
+        <property name="build.dir" location="${basedir}/build"/>
+        <property name="build-classes.dir" location="${build.dir}/classes"/>
+        <property name="build-lib.dir" location="${build.dir}/lib"/>
+        <property name="build-doc.dir" location="${build.dir}/doc"/>
+        <property name="java.dir" location="${env.JAVA_HOME}"/>
+        <property name="scala.dir" location="${env.SCALA_HOME}"/>
+        <!--<property name="scala.dir" location="/usr/local/Cellar/scala/2.10.3/libexec"/>-->
+        <!--<property name="scala.dir" location="/usr/share/scala"/>-->
+        <property name="scala-library.jar" location="${scala.dir}/lib/scala-library.jar"/>
+        <property name="scala-compiler.jar" location="${scala.dir}/lib/scala-compiler.jar"/>
+        <property name="scala.compiler" value="${scala.dir}/lib/scala-compiler.jar"/>
+        <property name="scala.reflect" value="${scala.dir}/lib/scala-reflect.jar"/>
+        <property name="scala.library" value="${scala.dir}/lib/scala-library.jar"/>
+        <property name="scala.lib" value="${scala.dir}/lib"/>
+        <property name="scalatest.dir" value="${lib.dir}/scalatest_2.10-2.0.jar"/>
+
+        <taskdef resource="scala/tools/ant/antlib.xml">
+            <classpath>
+                <pathelement location="${scala.dir}/lib/scala-compiler.jar"/>
+                <pathelement location="${scala-library.jar}"/>
+                <pathelement location="${scala.reflect}"/>
+            </classpath>
+        </taskdef>
+
+        <path id="project.classpath">
+            <pathelement location="${scala-library.jar}"/>
+            <pathelement location="${build-classes.dir}"/>
+            <pathelement location="${scalatest.dir}"/>
+            <!-- used during recompilation -->
+        </path>
+
+        <path id="scala.classpath">
+            <pathelement location="${scala-compiler.jar}"/>
+            <pathelement location="${scala-library.jar}"/>
+        </path>
+
+        <path id="scalatest.classpath">
+            <pathelement location="${lib.dir}/scalatest_2.10-2.0.jar"/>
+            <pathelement location="${scala-library.jar}"/>
+        </path>
+
+        <!-- print where this project will get scala and java from -->
+        <echo message="Init project"/>
+        <echo message=" with scala.dir = ${scala.dir}"/>
+        <echo message=" with java.dir = ${java.dir}"/>
+
+        <!-- check if any files has been modified since last build -->
+        <uptodate property="build.uptodate" targetfile="${build.dir}/build.done">
+            <srcfiles dir="${src.dir}" includes="**"/>
+            <srcfiles dir="${lib.dir}" includes="**"/>
+        </uptodate>
+    </target>
+
+    <target name="compile" depends="init" unless="build.uptodate">
+        <mkdir dir="${build-classes.dir}"/>
+        <scalac
+                destdir="${build-classes.dir}"
+                classpathref="project.classpath">
+            <include name="**/*.scala"/>
+            <src>
+                <pathelement location="${src.dir}"/>
+            </src>
+        </scalac>
+    </target>
+
+    <target name="compile-tests" depends="compile">
+        <scalac
+            destdir="${build-classes.dir}"
+            classpathref="project.classpath">
+            <include name="**/*.scala"/>
+            <src>
+                <pathelement location="${test.dir}"/>
+            </src>
+            </scalac>
+    </target>
+
+    <target name="doc" depends="compile" unless="build.uptodate">
+        <mkdir dir="${build-doc.dir}"/>
+        <scaladoc
+                srcdir="${src.dir}"
+                destdir="${build-doc.dir}"
+                doctitle="Project API documentation"
+                classpathref="project.classpath">
+            <include name="**/*.scala"/>
+        </scaladoc>
+    </target>
+
+    <target name="package" depends="doc" unless="build.uptodate">
+        <mkdir dir="${build-lib.dir}"/>
+        <jar destfile="${build-lib.dir}/testingDemo.jar">
+            <fileset dir="${build-classes.dir}"/>
+        </jar>
+        <jar destfile="${build-lib.dir}/testingDemo-src.jar">
+            <fileset dir="${src.dir}" includes="**/*.scala"/>
+        </jar>
+        <jar destfile="${build-lib.dir}/testingDemo-doc.jar">
+            <fileset dir="${build-doc.dir}"/>
+        </jar>
+        <jar destfile="${build-lib.dir}/tests.jar">
+            <fileset dir="${build-classes.dir}"/>
+        </jar>
+        <touch file="${build.dir}/build.done"/>
+        <!-- mark build as up-to-date -->
+    </target>
+
+    <target name="tests" depends="compile-tests">
+        <taskdef name="scalatest" classname="org.scalatest.tools.ScalaTestAntTask">
+            <classpath refid="scalatest.classpath"/>
+            <classpath refid="project.classpath"/>
+        </taskdef>
+
+        <scalatest haltonfailure="true">
+            <reporter type="junitxml" directory="target"/>
+            <reporter type="stdout" config="FD"/>
+            <suite classname="com.invodo.test.scala.InvodoUtilSpec"/>
+        </scalatest>
+    </target>
+    <!--test comment-->
+</project>
